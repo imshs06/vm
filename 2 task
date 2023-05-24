@@ -1,0 +1,167 @@
+#include <iostream>
+#include <math.h>
+#include <algorithm>
+
+// 9 вариант. f(x) = 1 - exp^{-x} + x^2
+// a=0 b=1,5
+// m+1=16 n=9
+
+double x; // точка интерполяции
+
+// ff(x) = 1 - exp^{-x} + x^2
+double f(double arg)
+{
+    return 1 - exp(-arg) + pow(arg, 2);
+}
+
+double random(double min, double max, int precision)
+{
+
+    double value;
+    value = rand() % (int)pow(10, precision);
+    value = min + (value / pow(10, precision)) * (max - min);
+    return value;
+}
+
+// функция, которая используется при сортировке узлов
+bool compare(double x_1, double x_2)
+{
+    return (fabs(x_1 - x) < fabs(x_2 - x));
+}
+
+
+double Lagrange(double* args, int n)
+{
+    double res = 0;
+    double prod;
+    for (int k = 0; k < n; k++) {
+        prod = 1;
+        for (int i = 0; i < n; i++) {
+            if (k != i) {
+                prod *= (x - args[i]) / (args[k] - args[i]);
+            }
+        }
+        res += prod * f(args[k]);
+    }
+    return res;
+}
+
+// считает A_k = f(x_0,...,x_k)
+double symm_difference(double* args, int k)
+{
+    double res = 0;
+    for (int j = 0; j <= k; j++) {
+        double prod = f(args[j]);
+        for (int i = 0; i <= k; i++) {
+            if (i != j) {
+                prod /= (args[j] - args[i]);
+            }
+        }
+        res += prod;
+    }
+    return res;
+}
+
+
+double Newton(double* args, int n)
+{
+    double* coeff = new double[n]; // коэффициенты полинома
+
+    // считаем коэффициенты
+    for (int i = 0; i < n; i++) {
+        if (i == 0) {
+            coeff[i] = f(args[i]);
+        }
+        else {
+            coeff[i] = symm_difference(args, i);
+        }
+    }
+    double prod = 1;
+    double res = 0;
+    for (int i = 0; i < n; i++)
+    {
+        res += coeff[i] * prod;
+        prod *= (x - args[i]);
+    }
+
+    delete[] coeff;
+    return res;
+}
+
+int main()
+{
+    std::cout << "Task #2. Algebraic interpolation" << std::endl;
+    std::cout << "9 var. f(x) = 1 - exp^{-x} + x^2; a = 0; b = 1,5; m + 1 = 16; n = 9" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+
+    int m_1; // m+1 - число значений в таблице
+    std::cout << "Enter the number of interpolation nodes: ";
+    std::cin >> m_1;
+
+    double a = 0; // границы интервала
+    double b = 1.5;
+    std::cout << "Enter the boundaries of the segment: ";
+    std::cin >> a >> b;
+
+    // подготовительный этап (разделим отрезок на m+1 отрезков и на каждом выберем произвольный узел)
+
+    double* args = new double[m_1]; // узлы интерполяции
+
+    double h = (b - a) / (double)m_1; // длина каждого из m+1 отрезков
+    std::cout << "" << std::endl;
+
+    std::cout << "Table:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    for (int i = 0; i < m_1; ++i)
+    {
+        args[i] = random(a + i * h, b + ((i + 1) * h), 6);
+        std::cout << args[i] << "\t" << "|" << "\t" << f(args[i]) << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "" << std::endl;
+
+    int process = 1;
+    while (process)
+    {
+        std::cout << "Enter the interpolation point: ";
+        std::cin >> x;
+
+        int n = 0; // степень многочлена интерполирования
+        std::cout << "Enter the degree of the interpolation polynom: ";
+        std::cin >> n;
+        while (n > m_1)
+        {
+            std::cout << "Invalid n value. The degree of the polynom must be  < " << m_1 << "Try again : ";
+            std::cin >> n;
+        }
+        std::cout << "" << std::endl;
+
+        std::cout << "Sorted table:" << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        // сортируем узлы интерполяции
+        std::sort(args, args + m_1, compare);
+        for (int i = 0; i < m_1; ++i)
+        {
+            std::cout << args[i] << "\t" << "|" << "\t" << f(args[i]) << std::endl;
+        }
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << "" << std::endl;
+
+        double fact = f(x);
+        std::cout << "Actual value: " << fact << std::endl;
+
+        double lagr = Lagrange(args, n);
+        std::cout << "Value of the interpolation polynom found by Lagrange method: " << lagr << std::endl;
+        std::cout << "Absolute actual error for the Lagrange formula: " << fabs(fact - lagr) << std::endl;
+
+        double newt = Newton(args, n);
+        std::cout << "Value of the interpolation polynom found by Newton method: " << newt << std::endl;
+        std::cout << "Absolute actual error for the Newton formula: " << fabs(fact - newt) << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+
+        std::cout << "Enter 1 to try new x and n, enter 0 to exit: ";
+        std::cin >> process;
+    }
+
+    delete[] args;
+}
