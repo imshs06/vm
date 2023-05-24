@@ -1,0 +1,250 @@
+#include <iostream>
+#include <cmath>
+#include <stdlib.h>
+#include <time.h>
+
+// f(x)
+double f(double x)
+{
+    return 5 * sin(2 * x) - sqrt(1 - x);  
+}
+
+// f'(x)
+double derivative_f(double x)
+{
+    return 10 * cos(2 * x) + 0.5 * pow(sqrt(1 - x), -1);  
+}
+
+// f''(x)
+double second_derivative_f(double x)
+{
+    return -20 * sin(2 * x) + -0.25 * pow(sqrt(1 - x), -3);  
+}
+
+double random(double min, double max, int precision)
+{
+
+    double value;
+
+    value = rand() % (int)pow(10, precision);
+
+    value = min + (value / pow(10, precision)) * (max - min);
+
+    return value;
+}
+
+/* отделение корней
+*  segments - массив, содержащий начала отрезков
+*  n - кол-во отрезков
+* возвращает длину отрезка
+*/
+double separate_solutions(double* segments, double A, double B, int& n, double N)
+{
+    double h = (B - A) / N; // длина отрезков
+    int counter = 0; // кол-во отрезков
+    double x1 = A;
+    double x2 = x1 + h;
+    double y1 = f(x1);
+    double y2;
+    while (x2 <= B)
+    {
+        y2 = f(x2);
+        if (y1 * y2 <= 0)
+        {
+            segments[counter] = x1;
+            counter += 1;
+            std::cout << "[" << x1 << ", " << x2 << "]" << std::endl;
+        }
+
+        x1 = x2;
+        x2 = x1 + h;
+        y1 = y2;
+    }
+    std::cout << "Total amount of segments: " << counter << std::endl;
+    n = counter;
+
+    return h;
+}
+
+void bisection(double A, double B, double e)
+{
+    std::cout << "Bisection method" << std::endl;
+    double C;
+    int counter = 0;
+    std::cout << "Segment: " << "[" << A << ", " << B << "]" << std::endl;
+    while ((B - A) > 2 * e)
+    {
+        counter++;
+        C = (A + B) / 2;
+        if ((f(A) * f(C)) <= 0)
+        {
+            B = C;
+        }
+        else
+        {
+            A = C;
+        }
+
+    }
+    std::cout << "Number of steps: " << counter << std::endl;
+    std::cout << "Length of the resulting segment: " << (B - A) / 2 << std::endl;
+    std::cout << "Approximate solution: " << (A + B) / 2 << std::endl;
+    std::cout << "|f(x)-0| = " << fabs(f((A + B) / 2)) << std::endl;
+}
+
+bool check_newton(double A, double B)
+{
+    if ((derivative_f(A) * derivative_f(B) < 0) || (second_derivative_f(A) * second_derivative_f(B) < 0))
+        return false;
+    return true;
+}
+
+void newton(double A, double B, double e)
+{
+    std::cout << "Newton method" << std::endl;
+    if (!check_newton(A, B))
+    {
+        std::cout << "This method cannot be applied" << std::endl;
+        return;
+    }
+
+    int counter = 0;
+
+    int i, stime;
+    long ltime;
+
+    ltime = time(NULL);
+    stime = (unsigned int)ltime / 2;
+    srand(stime);
+
+    double prev_sol = random(A, B, 6);
+    while (derivative_f(prev_sol) == 0)
+        prev_sol = random(A, B, 6);
+
+
+    double curr_sol = prev_sol - f(prev_sol) / derivative_f(prev_sol);
+
+    while (fabs(curr_sol - prev_sol) >= e)
+    {
+        prev_sol = curr_sol;
+        curr_sol = prev_sol - f(prev_sol) / derivative_f(prev_sol);
+        counter++;
+    }
+
+    if (curr_sol < A || curr_sol >B)
+        std::cout << "Something's gone wrong..." << std::endl;
+
+    std::cout << "Number of steps: " << counter << std::endl;
+    std::cout << "Length of the resulting segment: " << fabs(curr_sol - prev_sol) << std::endl;
+    std::cout << "Approximate solution: " << curr_sol << std::endl;
+    std::cout << "|f(x)-0| =" << fabs(f(curr_sol) - 0) << std::endl;
+}
+
+void modified_newton(double A, double B, double e)
+{
+    std::cout << "Modified Newton method" << std::endl;
+    if (!check_newton(A, B))
+    {
+        std::cout << "This method cannot be applied" << std::endl;
+        return;
+    }
+
+    int counter = 0;
+
+    int i, stime;
+    long ltime;
+
+    ltime = time(NULL);
+    stime = (unsigned int)ltime / 2;
+    srand(stime);
+
+    double prev_sol = random(A, B, 6);
+    while (derivative_f(prev_sol) == 0)
+        prev_sol = random(A, B, 6);
+
+    double deriv_x = derivative_f(prev_sol);
+
+    double curr_sol = prev_sol - f(prev_sol) / deriv_x;
+
+    while (fabs(curr_sol - prev_sol) >= e)
+    {
+        prev_sol = curr_sol;
+        curr_sol = prev_sol - f(prev_sol) / deriv_x;
+        counter++;
+    }
+
+    if (curr_sol < A || curr_sol >B)
+        std::cout << "Something's gone wrong..." << std::endl;
+
+    std::cout << "Number of steps: " << counter << std::endl;
+    std::cout << "Length of the resulting segment: " << fabs(curr_sol - prev_sol) << std::endl;
+    std::cout << "Approximate solution: " << curr_sol << std::endl;
+    std::cout << "|f(x)-0| =" << fabs(f(curr_sol) - 0) << std::endl;
+}
+
+void secant(double A, double B, double e)
+{
+    std::cout << "Secant method" << std::endl;
+    if (!check_newton(A, B))
+    {
+        std::cout << "This method cannot be applied" << std::endl;
+        return;
+    }
+
+    int counter = 0;
+
+    int i, stime;
+    long ltime;
+
+    ltime = time(NULL);
+    stime = (unsigned int)ltime / 2;
+    srand(stime);
+
+    double prev_sol = random(A, B, 6);
+    double curr_sol = random(A, B, 6);
+    double next_sol = curr_sol - f(curr_sol) * (curr_sol - prev_sol) / (f(curr_sol) - f(prev_sol));
+
+    while (fabs(curr_sol - prev_sol) >= e)
+    {
+        prev_sol = curr_sol;
+        curr_sol = next_sol;
+        next_sol = curr_sol - f(curr_sol) * (curr_sol - prev_sol) / (f(curr_sol) - f(prev_sol));
+        counter++;
+    }
+
+    if (curr_sol < A || curr_sol >B)
+        std::cout << "Something's gone wrong..." << std::endl;
+
+    std::cout << "Number of steps: " << counter << std::endl;
+    std::cout << "Approximate solution: " << curr_sol << std::endl;
+    std::cout << "|f(x)-0| =" << fabs(f(curr_sol) - 0) << std::endl;
+}
+
+int main()
+{
+    std::cout.precision(15);
+    double A = -15, B = -10, N = 1000, e = 0.000001; // параметры задачи
+    double segments[1000]; // массив, содержащий начала отрезков, полученных после отделения корней
+    int n; // кол-во отрезков, полученных после отделения корней
+
+    std::cout << "Task №1. Approximate solution of nonlinear equations" << std::endl;
+    std::cout << "8var. f(x) = 5sin(2x)-sqrt(1-x); [A, B] = [-15, -10]; e=10e-6" << std::endl; 
+    std::cout << "-----------------------------" << std::endl;
+
+    // отделение корней
+    std::cout << "Separate solutions:" << std::endl;
+    double h = separate_solutions(segments, A, B, n, N); // длина отрезков, полученных после отделения корней
+    std::cout << "-----------------------------" << std::endl;
+
+    for (int i = 0; i < n; i++)
+    {
+        bisection(segments[i], segments[i] + h, e);
+        newton(segments[i], segments[i] + h, e);
+        modified_newton(segments[i], segments[i] + h, e);
+        secant(segments[i], segments[i] + h, e);
+        std::cout << "-----------------------------" << std::endl;
+    }
+
+
+    return 0;
+}
