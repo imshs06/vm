@@ -1,0 +1,248 @@
+#include <iostream>
+#include <math.h>
+#include <algorithm>
+
+double F;
+int n; // степень многочлена интерполирования
+double e = 1e-8;
+
+struct arg_val
+{
+    double arg;
+    double val;
+};
+
+arg_val* table; // таблично-заданная функция
+double** divideddiff; // разделенные разности (нужно для 2 способа)
+
+// рассматриваемая функция f(x)
+double f(double arg)
+{
+    return 1 - exp(-arg) + pow(arg, 2);
+}
+
+// функция, которая формирует таблицу из m+1 значений функции f(x)
+void formtable(double a, double b, int m)
+{
+    double h = (b - a) / (double)(m - 1); // шаг
+
+    for (int i = 0; i < m; ++i)
+    {
+        table[i].arg = a + i * h;
+        table[i].val = f(a + i * h);
+    }
+}
+
+// функция, которая выводит таблично-заданную функцию
+void printtable(int m)
+{
+    for (int i = 0; i < m; ++i)
+    {
+        std::cout << table[i].arg << "\t" << table[i].val << std::endl;
+    }
+}
+
+bool compare(arg_val x_1, arg_val x_2)
+{
+    return (fabs(x_1.val - F) < fabs(x_2.val - F));
+}
+
+// интерполирование методом Лагранжа. Нужно для интерполяции f^(-1) в 1 способе
+double Lagrange()
+{
+    double res = 0;
+    double prod;
+    for (int k = 0; k < n; k++) {
+        prod = 1;
+        for (int i = 0; i < n; i++) {
+            if (k != i) {
+                prod *= (F - table[i].val) / (table[k].val - table[i].val);
+            }
+        }
+        res += prod * table[k].arg;
+    }
+    return res;
+}
+
+// интерполирование методом Ньютона. Нужно для интерполяции f во 2 способе
+void Newton()
+{
+    for (int i = 0; i <= n; i++)
+    {
+        for (int j = 0; j <= n; j++)
+        {
+            divideddiff[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i <= n; i++)
+    {
+        divideddiff[i][0] = table[i].val;
+    }
+
+    for (int i = 1; i <= n; i++) {
+        for (int j = 0; j <= n - i; j++) {
+            divideddiff[j][i] = (divideddiff[j + 1][i - 1] - divideddiff[j][i - 1]) / (table[j + i].arg - table[j].arg);
+        }
+    }
+
+
+}
+
+// вычисление значения интерполяционного многочлена для f в точке x - F
+double polynom(double x)
+{
+    double value = divideddiff[0][0];
+    double diff = 1;
+    for (int i = 1; i < n + 1; i++) {
+        diff *= (x - table[i - 1].arg);
+        value += divideddiff[0][i] * diff;
+    }
+    return value - F;
+}
+
+// функция отделения корней. Нужно для 2 способа при решении уравнения P_n(x)-F=0
+double separate_solutions(double* segments, double A, double B, int& n_sol)
+{
+    double N = 10;
+    double h = (B - A) / N; // длина отрезков
+    while (h > 1e-3)
+    {
+        N *= 10;
+        h = (B - A) / N;
+    }
+    int counter = 0; // кол-во отрезков
+    double x1 = A;
+    double x2 = x1 + h;
+    double y1 = polynom(x1);
+    double y2;
+    while (x2 <= B)
+    {
+        y2 = polynom(x2);
+        if (y1 * y2 <= 0)
+        {
+            segments[counter] = x1;
+            counter += 1;
+        }
+
+        x1 = x2;
+        x2 = x1 + h;
+        y1 = y2;
+    }
+    n_sol = counter;
+
+    return h;
+}
+
+// решает алгебраическое уравнение методом бисекции
+double bisection(double A, double B)
+{
+    double C;
+    int counter = 0;
+    while ((B - A) > 2 * e)
+    {
+        counter++;
+        C = (A + B) / 2;
+        if ((polynom(A) * polynom(C)) <= 0)
+        {
+            B = C;
+        }
+        else
+        {
+            A = C;
+        }
+
+    }
+    return (A + B) / 2;
+}
+
+
+int main()
+{
+    std::cout.precision(10);
+    std::cout << "Task #3.1. Backward interpolation problem" << std::endl;
+    std::cout << "Variant #9" << std::endl;
+    std::cout << "f(x) = 1-exp^{-x}+x^2" << std::endl;
+    std::cout << std::endl;
+
+    // подготовительный этап
+    int m_1; // число строк в таблице
+    std::cout << "Enter the number of interpolation nodes: ";
+    std::cin >> m_1;
+
+    double a = 0; // левая граница интервала
+    double b = 1; // правая граница интервала
+    table = new arg_val[m_1 + 1]; // массив из x_k
+
+    // подготовительный этап - формируем таблицу
+    formtable(a, b, m_1);
+    std::cout << std::endl;
+    std::cout << "Table:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    printtable(m_1);
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << std::endl;
+
+    int process = 1;
+    while (process)
+    {
+        std::cout << "Enter the function value: ";
+        std::cin >> F;
+        std::sort(table, table + m_1, compare);
+        std::cout << std::endl << "Sorted table:" << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        printtable(m_1);
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Enter the degree of the interpolation polynom. It must be < " << m_1 << " :";
+        std::cin >> n;
+        while (n >= m_1)
+        {
+            std::cout << "Invalid n value. The degree of the polynom must be < " << m_1 << ". Try again: ";
+            std::cin >> n;
+        }
+
+        std::cout << "Enter precision: ";
+        std::cin >> e;
+        std::cout << std::endl;
+
+        // 1 способ
+        double res_1 = Lagrange();
+        std::cout << "The result obtained by the first method: " << res_1 << std::endl;
+        std::cout << "|f(X)-F| = " << abs(f(res_1) - F) << std::endl;
+
+        std::cout << std::endl;
+
+        // 2 способ
+
+        divideddiff = new double* [n + 1];
+        for (int i = 0; i < n + 1; i++)
+        {
+            divideddiff[i] = new double[n + 1];
+        }
+        Newton();
+
+        int num_sol;
+        double segments[1000];
+        double h = separate_solutions(segments, a, b, num_sol);
+        double res_2;
+        std::cout << "The result obtained by the second method: " << std::endl;
+        for (int i = 0; i < num_sol; i++)
+        {
+            res_2 = bisection(segments[i], segments[i] + h);
+            std::cout << "X = " << res_2 << std::endl;
+            std::cout << "|f(X)-F| = " << abs(f(res_2) - F) << std::endl;
+        }
+
+        for (int i = 0; i < n + 1; i++) {
+            delete[] divideddiff[i];
+        }
+        delete[] divideddiff;
+
+        std::cout << std::endl << "Enter 1 to try new F, n, e, enter 0 to exit: ";
+        std::cin >> process;
+    }
+
+    delete[] table;
+}
