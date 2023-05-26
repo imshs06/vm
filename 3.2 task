@@ -1,0 +1,142 @@
+#include <iostream>
+#include <math.h>
+#include <algorithm>
+#include <limits>
+
+double* args;
+double h; // шаг
+int m_1; // число строк в таблице
+double a; // левая граница
+
+// рассматриваемая функция f(x)
+double f(double x)
+{
+    return exp(7.5 * x);
+}
+
+double exact_derivative(double x)
+{
+    return 7.5 * exp(7.5 * x);
+}
+
+double exact_second_derivative(double x)
+{
+    return 56.25 * exp(7.5 * x);
+}
+
+// функция, которая формирует таблицу из m+1 значений функции f(x)
+void formtable()
+{
+
+    for (int i = 0; i < m_1; ++i)
+    {
+        args[i] = a + i * h;
+    }
+}
+
+void printtable()
+{
+    for (int i = 0; i < m_1; ++i)
+    {
+        std::cout << args[i] << "\t" << f(args[i]) << std::endl;
+    }
+}
+
+/* формула численного диффернцирования для первой производной
+** Погрешность = f'''(t)*(-h^2)/6, x-h<t<x+h (центральная разностная производная)
+** Погрешность = f'''(t)*(h^2)/3, x<t<x+2h (если точка в начале таблицы)
+** Погрешность = f'''(t)*(h^2)/3, x-2h<t<x (если точка в конце таблицы)
+*/
+double numdiff_derivative(double x, int i)
+{
+    if (i > 0 && i < m_1 - 1)
+    {
+        return (f(x + h) - f(x - h)) / (2 * h);
+    }
+    if (i == 0)
+    {
+        return (-3 * f(x) + 4 * f(x + h) - f(x + 2 * h)) / (2 * h);
+    }
+    return (3 * f(x) - 4 * f(x - h) + f(x - 2 * h)) / (2 * h);
+}
+
+/* формула численного диффернцирования для  второй производной
+** Погрешность = -f''''(t)*h^2/12, x-h<=t<=x+h
+*/
+double numdiff_second_derivative(double x, int i)
+{
+    if (i == 0 || i == m_1 - 1)
+    {
+        constexpr double infin = std::numeric_limits<double>::infinity();
+        return abs(infin / infin);
+    }
+    return (f(x + h) - 2 * f(x) + f(x - h)) / (h * h);
+}
+
+
+void result_table()
+{
+    double x;
+    double val;
+    double df_nd;
+    double ddf_nd;
+    double df_ex;
+    double ddf_ex;
+    std::cout << "x_i\t  f(x_i)\t  f'(x_i)nd\t|f'(x_i)e - f'(x_i)nd|\t f''(x_i)nd\t|f''(x_i)e - f''(x_i)nd|" << std::endl;
+    for (int i = 0; i < m_1; i++)
+    {
+        x = args[i];
+        val = f(args[i]);
+        df_nd = numdiff_derivative(x, i);
+        ddf_nd = numdiff_second_derivative(x, i);
+        df_ex = exact_derivative(x);
+        ddf_ex = exact_second_derivative(x);
+        std::cout << x << "\t" << val << "\t" << df_nd << "\t" << abs(df_ex - df_nd) << "\t\t" << ddf_nd << "\t" << abs(ddf_ex - ddf_nd) << std::endl;
+    }
+}
+
+
+int main()
+{
+    std::cout.precision(10);
+    std::cout << "Task #3.2. Finding the derivatives of a table function using the formula of numerical differentiation" << std::endl;
+    std::cout << "Variant #9" << std::endl;
+    std::cout << "f(x) = exp(7.5x)" << std::endl;
+    std::cout << std::endl;
+
+    int process = 1;
+
+    while (process)
+    {
+        // подготовительный этап
+        std::cout << "Enter the number of interpolation nodes: ";
+        std::cin >> m_1;
+
+        std::cout << "Enter the lower bound: ";
+        std::cin >> a;
+
+        std::cout << "Enter the value of the step: ";
+        std::cin >> h;
+
+        args = new double[m_1]; // узлы интерполяции
+
+        formtable();
+        std::cout << std::endl;
+        std::cout << "Table:" << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        printtable();
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << std::endl;
+
+        result_table();
+        std::cout << std::endl;
+
+        delete[] args;
+
+        std::cout << "Enter 1 to change parameters. Enter 0 to exit: ";
+        std::cin >> process;
+        std::cout << std::endl;
+    }
+
+}
+
