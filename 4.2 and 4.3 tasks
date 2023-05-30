@@ -1,0 +1,305 @@
+#include <iostream>
+#include <math.h>
+
+
+double f_0(double x)
+{
+    return 13.0;
+}
+
+double F_0(double x)
+{
+    return 13.0 * x;
+}
+
+double f_1(double x)
+{
+    return -7 * x + 3;
+}
+
+double F_1(double x)
+{
+    return -7 * x * x / 2.0 + 3 * x;
+}
+
+double f_2(double x)
+{
+    return 3 * x * x + 4 * x - 3;
+}
+
+double F_2(double x)
+{
+    return x * x * x + 2* x * x - 3 * x;
+}
+
+double f_3(double x)
+{
+    return -2 * x * x * x + 10 * x * x + 6 * x - 9;
+}
+
+double F_3(double x)
+{
+    return -x * x * x * x / 2.0 + 10 * x * x * x / 3.0 + 3 * x * x - 9 * x;
+}
+
+double f_4(double x)
+{
+    return exp(2*x);
+}
+
+double F_4(double x)
+{
+    return exp(2*x)/2.0;
+}
+
+double df_4(double x)
+{
+    return 2 * exp(2 * x);
+}
+
+double ddf_4(double x)
+{
+    return 4 * exp(2 * x);
+}
+
+double ddddf_4(double x)
+{
+    return 16 * exp(2 * x);
+}
+
+// АСТ = 0, используется m значений функции f
+double left_square(double a, double b, double h, int m, double(*f)(double))
+{
+    double summ = 0;
+    for (int i = 0; i < m; i++)
+    {
+        summ += f(a + i * h);
+    }
+    return summ*h;
+}
+
+// АСТ = 0, используется m значений функции f
+double right_square(double a, double b, double h, int m, double(*f)(double))
+{
+    double summ = 0;
+    for (int i = 0; i < m; i++)
+    {
+        summ += f(a + (i + 1) * h);
+    }
+    return summ * h;
+}
+
+// АСТ = 1, используется m значений функции f
+double middle_square(double a, double b, double h, int m, double(*f)(double))
+{
+    double summ = 0;
+    for (int i = 0; i < m; i++)
+    {
+        summ += f(a + (i + 0.5) * h);
+    }
+    return summ * h;
+}
+
+// АСТ = 1, , используется m+1 значение функции f
+double trapeze(double a, double b, double h, int m, double(*f)(double))
+{
+    double summ = 0;
+    for (int i = 0; i < m; i++)
+    {
+        summ += h * (f(a + i * h) + f(a + (i + 1) * h)) / 2.0;
+    }
+    return summ;
+
+}
+
+// АСТ = 3, , используется 2m+1 значений функции f
+double simpson(double a, double b, double h, int m, double(*f)(double))
+{
+    double summ = 0;
+    for (int i = 0; i < m; i++)
+    {
+        summ += h * (f(a + i * h) + 4 * f((a + i * h + a + (i + 1) * h) / 2.0) + f(a + (i + 1) * h)) / 6.0;
+    }
+    return summ;
+}
+
+int main()
+{
+    std::cout.precision(12);
+
+    std::cout << "Task 4.2. Approximate calculation of the integral by composite quadrature formulas" << std::endl;
+    std::cout << "Task 4.3" << std::endl << std::endl;
+    int process = 1;
+    int func_num = 0; // номер функции, с которой работаем. 0-3 - многочлены соответствующих степеней, 4 - произвольная функция
+    double a, b; // границы интервала интегрирования
+    int m; // число промежутков деления [a,b]
+    int l;
+    double h; // длина промежутков
+    double J = 0; // точное значение интеграла
+    double l_s_1 = 0, r_s_1 = 0, m_s_1 = 0, tr_1 = 0, sim_1 = 0;
+    double l_s_2 = 0, r_s_2 = 0, m_s_2 = 0, tr_2 = 0, sim_2 = 0;
+    double l_s_runge = 0, r_s_runge = 0, m_s_runge = 0, tr_runge = 0, sim_runge = 0;
+    while (process)
+    {
+        std::cout << "Select a function:" << std::endl;
+        std::cout << "0: const=13" << std::endl;
+        std::cout << "1: -7x + 3" << std::endl;
+        std::cout << "2: 9x^2 - 2x + 5" << std::endl;
+        std::cout << "3: -2x^3 + 10x^2 + 6x - 9" << std::endl;
+        std::cout << "4: e^(2x)" << std::endl;
+        std::cin >> func_num;
+        std::cout << std::endl;
+
+        std::cout << "Enter the boundaries of the interval: ";
+        std::cin >> a >> b;
+        if (a > b) std::swap(a, b);
+        std::cout << "Enter the number of segments: ";
+        std::cin >> m;
+        if (func_num == 4)
+        {
+            std::cout << "Enter the coefficient l by which you want to multiply: ";
+            std::cin >> l;
+        }
+        h = (b - a) / m;
+        std::cout << std::endl;
+
+        std::cout << "f(x) = ";
+        switch (func_num)
+        {
+        case 0:
+            J = F_0(b) - F_0(a);
+            l_s_1 = left_square(a, b, h, m, f_0);
+            r_s_1 = right_square(a, b, h, m, f_0);
+            m_s_1 = middle_square(a, b, h, m, f_0);
+            tr_1 = trapeze(a, b, h, m, f_0);
+            sim_1 = simpson(a, b, h, m, f_0);
+            std::cout << "13; ";
+            break;
+        case 1:
+            J = F_1(b) - F_1(a);
+            l_s_1 = left_square(a, b, h, m, f_1);
+            r_s_1 = right_square(a, b, h, m, f_1);
+            m_s_1 = middle_square(a, b, h, m, f_1);
+            tr_1 = trapeze(a, b, h, m, f_1);
+            sim_1 = simpson(a, b, h, m, f_1);
+            std::cout << "-7x + 3; ";
+            break;
+        case 2:
+            l_s_1 = left_square(a, b, h, m, f_2);
+            r_s_1 = right_square(a, b, h, m, f_2);
+            m_s_1 = middle_square(a, b, h, m, f_2);
+            tr_1 = trapeze(a, b, h, m, f_2);
+            sim_1 = simpson(a, b, h, m, f_2);
+            J = F_2(b) - F_2(a);
+            std::cout << "9x^2 - 2x + 5; ";
+            break;
+        case 3:
+            l_s_1 = left_square(a, b, h, m, f_3);
+            r_s_1 = right_square(a, b, h, m, f_3);
+            m_s_1 = middle_square(a, b, h, m, f_3);
+            tr_1 = trapeze(a, b, h, m, f_3);
+            sim_1 = simpson(a, b, h, m, f_3);
+            J = F_3(b) - F_3(a);
+            std::cout << "-2x^3 + 10x^2 + 6x - 9; ";
+            break;
+        case 4:
+            l_s_1 = left_square(a, b, h, m, f_4);
+            r_s_1 = right_square(a, b, h, m, f_4);
+            m_s_1 = middle_square(a, b, h, m, f_4);
+            tr_1 = trapeze(a, b, h, m, f_4);
+            sim_1 = simpson(a, b, h, m, f_4);
+            l_s_2 = left_square(a, b, h/l, m*l, f_4);
+            r_s_2 = right_square(a, b, h/l, m*l, f_4);
+            m_s_2 = middle_square(a, b, h/l, m*l, f_4);
+            tr_2 = trapeze(a, b, h/l, m*l, f_4);
+            sim_2 = simpson(a, b, h/l, m*l, f_4);
+            l_s_runge = (l * l_s_2 - l_s_1) / (l - 1);
+            r_s_runge = (l * r_s_2 - r_s_1) / (l - 1);
+            m_s_runge = (l * l * m_s_2 - m_s_1) / (l * l - 1);
+            tr_runge = (l * l * tr_2 - tr_1) / (l * l - 1);
+            sim_runge = (pow(l, 4) * sim_2 - sim_1) / (pow(l, 4) - 1);
+            J = F_4(b) - F_4(a);
+            std::cout << "e^(2x); ";
+            break;
+        }
+        std::cout << "(a, b) = (" << a << ", " << b << "); m = " << m << "; h = " << h << std::endl;
+        std::cout << "The exact value of the integral: J = " << J << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Left square: " << std::endl;
+        std::cout << "J(h) = " << l_s_1 << std::endl;
+        std::cout << "|J - J(h)| = " << abs(J - l_s_1) << std::endl;
+        if (func_num == 4)
+        {
+            // теоретическая погрешность: (b-a)^2 * max|f'(x)| / (2m), где x in [a,b]
+            std::cout << "Theoretical error: " << abs(df_4(b)) * (b - a) * h / 2.0 << std::endl;
+            std::cout << "J(h/l) = " << l_s_2 << std::endl;
+            std::cout << "|J - J(h/l)| = " << abs(J - l_s_2) << std::endl;
+            std::cout << "J_runge = " << l_s_runge << std::endl;
+            std::cout << "|J - J_runge| = " << abs(J - l_s_runge) << std::endl;
+        }
+        std::cout << std::endl;
+
+
+        std::cout << "Right square: " << std::endl;
+        std::cout << "J(h) = " << r_s_1 << std::endl;
+        std::cout << "|J - J(h)| = " << abs(J - r_s_1) << std::endl;
+        if (func_num == 4)
+        {
+            // теоретическая погрешность: (b-a)^2 * max|f'(x)| / (2m), где x in [a,b]
+            std::cout << "Theoretical error: " << abs(df_4(b)) * (b - a) * h / 2.0 << std::endl;
+            std::cout << "J(h/l) = " << r_s_2 << std::endl;
+            std::cout << "|J - J(h/l)| = " << abs(J - r_s_2) << std::endl;
+            std::cout << "J_runge = " << r_s_runge << std::endl;
+            std::cout << "|J - J_runge| = " << abs(J - r_s_runge) << std::endl;
+        }
+        std::cout << std::endl;
+
+        std::cout << "Middle square: " << std::endl;
+        std::cout << "J(h) = " << m_s_1 << std::endl;
+        std::cout << "|J - J(h)| = " << abs(J - m_s_1) << std::endl;
+        if (func_num == 4)
+        {
+            // теоретическая погрешность: (b-a)^3 * max|f''(x)| / (24m^2), где x in [a,b]
+            std::cout << "Theoretical error: " << abs(ddf_4(b)) * (b - a) * h * h / 24.0 << std::endl;
+            std::cout << "J(h/l) = " << m_s_2 << std::endl;
+            std::cout << "|J - J(h/l)| = " << abs(J - m_s_2) << std::endl;
+            std::cout << "J_runge = " << m_s_runge << std::endl;
+            std::cout << "|J - J_runge| = " << abs(J - m_s_runge) << std::endl;
+        }
+        std::cout << std::endl;
+
+        std::cout << "Trapeze: " << std::endl;
+        std::cout << "J(h) = " << tr_1 << std::endl;
+        std::cout << "|J - J(h)| = " << abs(J - tr_1) << std::endl;
+        if (func_num == 4)
+        {
+            // теоретическая погрешность: (b-a)^3 * max|f''(x)| / (12m^2), где x in [a,b]
+            std::cout << "Theoretical error: " << abs(ddf_4(b)) * (b - a) * h * h / 12.0 << std::endl;
+            std::cout << "J(h/l) = " << tr_2 << std::endl;
+            std::cout << "|J - J(h/l)| = " << abs(J - tr_2) << std::endl;
+            std::cout << "J_runge = " << tr_runge << std::endl;
+            std::cout << "|J - J_runge| = " << abs(J - tr_runge) << std::endl;
+        }
+        std::cout << std::endl;
+
+        std::cout << "Simpson: " << std::endl;
+        std::cout << "J(h) = " << sim_1 << std::endl;
+        std::cout << "|J - J(h)| = " << abs(J - sim_1) << std::endl;
+        if (func_num == 4)
+        {
+            // теоретическая погрешность: (b-a)^5 * max|f''''(x)| / (2880m^4), где x in [a,b]
+            std::cout << "Theoretical error: " << abs(ddddf_4(b)) * (b - a) * pow(h, 4) / 2880.0 << std::endl;
+            std::cout << "J(h/l) = " << sim_2 << std::endl;
+            std::cout << "|J - J(h/l)| = " << abs(J - sim_2) << std::endl;
+            std::cout << "J_runge = " << sim_runge << std::endl;
+            std::cout << "|J - J_runge| = " << abs(J - sim_runge) << std::endl;
+        }
+        std::cout << std::endl;
+
+
+        std::cout << "Type 1 to enter new data. Type 0 to exit: ";
+        std::cin >> process;
+    }
+    return 0;
+}
