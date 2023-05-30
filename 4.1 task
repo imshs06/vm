@@ -1,0 +1,213 @@
+#include <iostream>
+#include <math.h>
+
+
+double f_0(double x)
+{
+    return 13.0;
+}
+
+double F_0(double x)
+{
+    return 13.0 * x;
+}
+
+double f_1(double x)
+{
+    return -7 * x + 3;
+}
+
+double F_1(double x)
+{
+    return -7 * x * x / 2.0 + 3 * x;
+}
+
+double f_2(double x)
+{
+    return 9 * x * x - 2 * x + 5;
+}
+
+double F_2(double x)
+{
+    return 3 * x * x * x - x * x + 5 * x;
+}
+
+double f_3(double x)
+{
+    return -2 * x * x * x + 10 * x * x + 6 * x - 9;
+}
+
+double F_3(double x)
+{
+    return -x * x * x * x / 2.0 + 10 * x * x * x / 3.0 + 3 * x * x - 9 * x;
+}
+
+double f_4(double x)
+{
+    return sin(x) * exp(x);
+}
+
+double F_4(double x)
+{
+    return exp(x)*(sin(x)-cos(x))/2.0;
+}
+
+// АСТ = 0
+double left_square(double a, double b, double(*f)(double) )
+{
+    return (b - a) * f(a);
+}
+
+// АСТ = 0
+double right_square(double a, double b, double(*f)(double))
+{
+    return (b - a) * f(b);
+}
+
+// АСТ = 1
+double middle_square(double a, double b, double(*f)(double))
+{
+    return (b - a) * f((a+b)/2.0);
+}
+
+// АСТ = 1
+double trapeze(double a, double b, double(*f)(double))
+{
+    return (b - a) * (f(a) + f(b)) / 2.0;
+}
+
+// АСТ = 3
+double simpson(double a, double b, double(*f)(double))
+{
+    return (b - a) * (f(a) + 4 * f((a + b) / 2.0) + f(b)) / 6.0;
+}
+
+// АСТ = 3
+double f3_8(double a, double b, double(*f)(double))
+{
+    double h = (b - a) / 3;
+    return (b - a) * (f(a) / 8.0 + 3 * f(a + h) / 8.0 + 3 * f(a + 2 * h) / 8.0 + f(b) / 8.0);
+}
+
+int main()
+{
+    std::cout.precision(12);
+
+    std::cout << "Task 4.1. Approximate calculation of the integral by quadrature formulas" << std::endl << std::endl;
+    int process = 1;
+    int func_num = 0; // номер функции, с которой работаем. 0-3 - многочлены соответствующих степеней, 4 - произвольная функция
+    double a, b; // границы интервала интегрирования
+    double J = 0; // точное значение интеграла
+    double l_s = 0, r_s = 0, m_s = 0, tr = 0, sim = 0, v3_8 = 0;
+    while (process)
+    {
+        std::cout << "Select a function:" << std::endl;
+        std::cout << "0: const=13" << std::endl;
+        std::cout << "1: -7x + 3" << std::endl;
+        std::cout << "2: 9x^2 - 2x + 5" << std::endl;
+        std::cout << "3: -2x^3 + 10x^2 + 6x - 9" << std::endl;
+        std::cout << "4: sin(x)e^x" << std::endl;
+        std::cin >> func_num;
+        std::cout << std::endl;
+
+        std::cout << "Enter the boundaries of the interval: ";
+        std::cin >> a >> b;
+        if (a > b) std::swap(a, b);
+        std::cout << std::endl;
+
+        std::cout << "f(x) = ";
+        switch (func_num)
+        {
+        case 0:
+            J = F_0(b) - F_0(a);
+            l_s = left_square(a, b, f_0);
+            r_s = right_square(a, b, f_0);
+            m_s = middle_square(a, b, f_0);
+            tr = trapeze(a, b, f_0);
+            sim = simpson(a, b, f_0);
+            v3_8 = f3_8(a, b, f_0);
+            std::cout << "13; ";
+            break;
+        case 1:
+            J = F_1(b) - F_1(a);
+            l_s = left_square(a, b, f_1);
+            r_s = right_square(a, b, f_1);
+            m_s = middle_square(a, b, f_1);
+            tr = trapeze(a, b, f_1);
+            sim = simpson(a, b, f_1);
+            v3_8 = f3_8(a, b, f_1);
+            std::cout << "-7x + 3; ";
+            break;
+        case 2:
+            l_s = left_square(a, b, f_2);
+            r_s = right_square(a, b, f_2);
+            m_s = middle_square(a, b, f_2);
+            tr = trapeze(a, b, f_2);
+            sim = simpson(a, b, f_2);
+            v3_8 = f3_8(a, b, f_2);
+            J = F_2(b) - F_2(a);
+            std::cout << "9x^2 - 2x + 5; ";
+            break;
+        case 3:
+            l_s = left_square(a, b, f_3);
+            r_s = right_square(a, b, f_3);
+            m_s = middle_square(a, b, f_3);
+            tr = trapeze(a, b, f_3);
+            sim = simpson(a, b, f_3);
+            v3_8 = f3_8(a, b, f_3);
+            J = F_3(b) - F_3(a);
+            std::cout << "-2x^3 + 10x^2 + 6x - 9; ";
+            break;
+        case 4:
+            l_s = left_square(a, b, f_4);
+            r_s = right_square(a, b, f_4);
+            m_s = middle_square(a, b, f_4);
+            tr = trapeze(a, b, f_4);
+            sim = simpson(a, b, f_4);
+            v3_8 = f3_8(a, b, f_4);
+            J = F_4(b) - F_4(a);
+            std::cout << "sin(x)e^x; ";
+            break;
+        }
+        std::cout << "(a, b) = (" << a << ", " << b << ")" << std::endl;
+        std::cout << "The exact value of the integral: J = " << J << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Left square: " << std::endl;
+        std::cout << "J_ls = " << l_s << std::endl;
+        std::cout << "|J - J_ls| = " << abs(J - l_s) << std::endl;
+        std::cout << std::endl;
+
+
+        std::cout << "Right square: " << std::endl;
+        std::cout << "J_rs = " << r_s << std::endl;
+        std::cout << "|J - J_rs| = " << abs(J - r_s) << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Middle square: " << std::endl;
+        std::cout << "J_ms = " << m_s << std::endl;
+        std::cout << "|J - J_ms| = " << abs(J - m_s) << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Trapeze: " << std::endl;
+        std::cout << "J_tr = " << tr << std::endl;
+        std::cout << "|J - J_tr| = " << abs(J - tr) << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Simpson: " << std::endl;
+        std::cout << "J_sim = " << sim << std::endl;
+        std::cout << "|J - J_sim| = " << abs(J - sim) << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "3/8: " << std::endl;
+        std::cout << "J_3.8 = " << v3_8 << std::endl;
+        std::cout << "|J - J_3.8| = " << abs(J - v3_8) << std::endl;
+        std::cout << std::endl;
+
+
+        std::cout << "Type 1 to enter new data. Type 0 to exit: ";
+        std::cin >> process;
+    }
+    return 0;
+}
+
