@@ -1,0 +1,229 @@
+#include <iostream>
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
+#include <algorithm>
+#include <iomanip>
+
+double a = -1, b = 1;
+double** polynom_coeff;
+double e = 1e-12;
+
+double F(double x)
+{
+    return 0.5 * exp(x) * (sin(x) - cos(x));
+}
+
+double f(double x)
+{
+    return sin(x) * exp(x);
+}
+
+// находит коэффициенты многочленов Лежандра
+void fill_legendre(int degree)
+{
+    polynom_coeff[0][0] = 1;
+    polynom_coeff[1][1] = 1;
+    for (int i = 2; i <= degree; i++) {
+        for (int j = 1; j <= degree; j++) {
+            polynom_coeff[i][j] = (2 * i - 1) * polynom_coeff[i - 1][j - 1] / i - (i - 1) * polynom_coeff[i - 2][j] / i;
+        }
+        polynom_coeff[i][0] = polynom_coeff[i - 2][0] * (1 - i) / i;
+    }
+}
+
+// вычисляет многочлен лежандра степени degree в точке x
+double legendre(double x, int degree) {
+    if (degree == 0) {
+        return 1;
+    }
+    else if (degree == 1) {
+        return x;
+    }
+    else
+    {
+        double value = 0;
+        for (int i = 0; i <= degree; i++)
+        {
+            value += polynom_coeff[degree][i] * pow(x, i);
+        }
+        return value;
+    }
+}
+
+double* separate_solutions(int degree)
+{
+    double* segments = new double[degree];
+    double h = 0.001; // длина отрезков
+    int counter = 0; // кол-во отрезков
+    double x1 = -1;
+    double x2 = x1 + h;
+    double y1 = legendre(x1, degree);
+    double y2;
+    while (x2 <= 1)
+    {
+        y2 = legendre(x2, degree);
+        if (y1 * y2 <= 0)
+        {
+            segments[counter] = x1;
+            counter += 1;
+            if (counter == degree) break;
+        }
+
+        x1 = x2;
+        x2 = x1 + h;
+        y1 = y2;
+    }
+
+    return segments;
+}
+
+double random(double min, double max, int precision)
+{
+
+    double value;
+
+    value = rand() % (int)pow(10, precision);
+
+    value = min + (value / pow(10, precision)) * (max - min);
+
+    return value;
+}
+
+double secant(double A, double B, int degree)
+{
+    int stime;
+    long ltime;
+
+    ltime = time(NULL);
+    stime = (unsigned int)ltime / 2;
+    srand(stime);
+
+    double prev_sol = random(A, B, 6);
+    double curr_sol = random(A, B, 6);
+    double next_sol = curr_sol - legendre(curr_sol, degree) * (curr_sol - prev_sol) / (legendre(curr_sol, degree) - legendre(prev_sol, degree));
+
+    while (fabs(curr_sol - prev_sol) >= e)
+    {
+        prev_sol = curr_sol;
+        curr_sol = next_sol;
+        next_sol = curr_sol - legendre(curr_sol, degree) * (curr_sol - prev_sol) / (legendre(curr_sol, degree) - legendre(prev_sol, degree));
+    }
+
+    return curr_sol;
+}
+
+int main()
+{
+    std::cout << "Task #5.3 Approximate calculation of the integral using the composite Gaussian CF" << std::endl;
+    std::cout << "f(x) = sin(x)" << std::endl;
+    std::cout << "rho(x) = e^x" << std::endl << std::endl;
+    std::cout.precision(15);
+
+    int N;
+    int process = 1;
+    double* segments;
+    double* nodes;
+    double* cf_coeff;
+    double A, B;
+    int m;
+    double h, res;
+    double exact_res;
+    double sum_of_coeffs;
+
+    while (process)
+    {
+
+        std::cout << "Enter N: ";
+        std::cin >> N;
+
+        polynom_coeff = new double* [N + 1];
+        for (int i = 0; i <= N; i++)
+        {
+            polynom_coeff[i] = new double[N + 1];
+        }
+        // заполнение массива коэффициентов полинома лежандра нулями
+        for (int i = 0; i < N + 1; i++)
+        {
+            for (int j = 0; j < N + 1; j++)
+            {
+                polynom_coeff[i][j] = 0;
+            }
+        }
+
+        fill_legendre(N);
+
+        // отделение корней
+        segments = separate_solutions(N);
+        nodes = new double[N]; // узлы кф
+        for (int i = 0; i < N; i++)
+        {
+            nodes[i] = secant(segments[i], segments[i] + 0.001, N);
+            //std::cout << "[" << segments[i] << ", " << segments[i] + 0.001 << "]: ";
+            //std::cout << nodes[i] << std::endl;
+        }
+        cf_coeff = new double[N];
+        sum_of_coeffs = 0;
+        for (int i = 0; i < N; i++)
+        {
+            cf_coeff[i] = 2 * (1 - nodes[i] * nodes[i]) / (N * N * pow(legendre(nodes[i], N - 1), 2));
+        }
+
+        std::cout << "Coeffitiens of the quadrature formula:" << std::endl;
+        std::cout << "t_k\t\t\tC_k" << std::endl;
+        for (int i = 0; i < N; i++)
+        {
+            std::cout << std::setfill(' ') << std::setw(20) << std::left << nodes[i] << "\t" << cf_coeff[i] << std::endl;
+            sum_of_coeffs += cf_coeff[i];
+        }
+        std::cout << "sum of C_k: " << sum_of_coeffs << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "A = ";
+        std::cin >> A;
+        std::cout << "B = ";
+        std::cin >> B;
+        if (A > B) std::swap(A, B);
+        std::cout << "m = ";
+        std::cin >> m;
+        exact_res = F(B) - F(A);
+
+        std::cout << "----------------------------" << std::endl;
+        std::cout << "N  = " << N << std::endl;
+        std::cout << "m  = " << m << std::endl;
+        std::cout << "A  = " << A << std::endl;
+        std::cout << "B  = " << B << std::endl;
+        std::cout << "exact value of the integral: " << exact_res << std::endl;
+
+
+        h = (B - A) / (double)m;
+        res = 0;
+
+        for (int j = 0; j < m; j++)
+        {
+            for (int k = 1; k <= N; k++)
+            {
+                res += cf_coeff[k - 1] * f(h * nodes[k - 1] / 2 + A + j * h + h / 2);
+            }
+        }
+
+        res *= (h / 2);
+
+        std::cout << "int sin(x)*e^x dx x=" << A << ".." << B << " = " << res << std::endl;
+        std::cout << "error: " << abs(exact_res - res) << std::endl;
+        std::cout << "----------------------------" << std::endl;
+
+        std::cout << "Enter 1 to try new N, m, A, B. Enter 0 to exit." << std::endl;
+        std::cin >> process;
+
+
+        for (int i = 0; i <= N; i++) {
+            delete[] polynom_coeff[i];
+        }
+        delete[] polynom_coeff;
+        delete[] segments;
+        delete[] nodes;
+        delete[] cf_coeff;
+    }
+}
+
