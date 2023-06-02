@@ -1,0 +1,329 @@
+// 5.2 Gauss.cpp: определяет точку входа для приложения.
+//
+#include <boost/math/quadrature/gauss.hpp>
+
+#include "5.2 Gauss.h"
+#include <iostream>
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
+#include <iomanip>
+#include <algorithm>
+
+const double PI = acos(-1.0);
+
+int N = 8;
+double a = -1, b = 1;
+double polynom_coeff[9][9]; // массив коэффициентов полинома лежандра, в i-ой строке коэффициенты многочлена i-ой степени
+double nodes[8][8]; // в i-ой строчке i+1 узлов для N=i+1 (i=0,...,7)
+int n_nodes[8];
+double e = 1e-12;
+
+double rho(double x)
+{
+    return 1.0;
+}
+double f(double x)
+{
+    return sin(x * x);
+}
+
+// многочлен для проверки ИКФ
+double test_polynom(double x, int degree)
+{
+    return 17 * pow(x, degree) - 8;
+}
+
+// находит коэффициенты многочленов Лежандра 1-8 степеней 
+void fill_legendre()
+{
+    polynom_coeff[0][0] = 1;
+    polynom_coeff[1][1] = 1;
+    for (int i = 2; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
+            polynom_coeff[i][j] = (2 * i - 1) * polynom_coeff[i - 1][j - 1] / i - (i - 1) * polynom_coeff[i - 2][j] / i;
+        }
+        polynom_coeff[i][0] = polynom_coeff[i - 2][0] * (1 - i) / i;
+    }
+
+}
+
+// вычисляет многочлен лежандра степени degree в точке x
+double legendre(double x, int degree) {
+    if (degree == 0) {
+        return 1;
+    }
+    else if (degree == 1) {
+        return x;
+    }
+    else
+    {
+        double value = 0;
+        for (int i = 0; i <= N; i++)
+        {
+            value += polynom_coeff[degree][i] * pow(x, i);
+        }
+        return value;
+    }
+}
+
+double* separate_solutions(int degree)
+{
+    double* segments = new double[degree];
+    double h = 0.001; // длина отрезков
+    int counter = 0; // кол-во отрезков
+    double x1 = -1;
+    double x2 = x1 + h;
+    double y1 = legendre(x1, degree);
+    double y2;
+    while (x2 <= 1)
+    {
+        y2 = legendre(x2, degree);
+        if (y1 * y2 <= 0)
+        {
+            segments[counter] = x1;
+            counter += 1;
+            if (counter == degree) break;
+        }
+
+        x1 = x2;
+        x2 = x1 + h;
+        y1 = y2;
+    }
+
+    return segments;
+}
+
+double random(double min, double max, int precision)
+{
+
+    double value;
+
+    value = rand() % (int)pow(10, precision);
+
+    value = min + (value / pow(10, precision)) * (max - min);
+
+    return value;
+}
+
+double secant(double A, double B, int degree)
+{
+    int stime;
+    long ltime;
+
+    ltime = time(NULL);
+    stime = (unsigned int)ltime / 2;
+    srand(stime);
+
+    double prev_sol = random(A, B, 6);
+    double curr_sol = random(A, B, 6);
+    double next_sol = curr_sol - legendre(curr_sol, degree) * (curr_sol - prev_sol) / (legendre(curr_sol, degree) - legendre(prev_sol, degree));
+
+    while (fabs(curr_sol - prev_sol) >= e)
+    {
+        prev_sol = curr_sol;
+        curr_sol = next_sol;
+        next_sol = curr_sol - legendre(curr_sol, degree) * (curr_sol - prev_sol) / (legendre(curr_sol, degree) - legendre(prev_sol, degree));
+    }
+
+    return curr_sol;
+}
+
+/*
+* Вычисляет int rho(x)x^k dx x=a..b (k-ый момент весовой функции для (a,b))
+*/
+double calculate_moment(int k, double a, double b)
+{
+    int m = 10; // кол-во промежутков разбиения (a,b)
+    double h = (b - a) / 10; //длина промежутков разбиения
+    // добиваемся того, чтобы длина промежутков была не больше 0.001
+    while (h > 1e-3)
+    {
+        m *= 10;
+        h = (b - a) / m;
+    }
+    // считаем интеграл по СКФ средних прямоугольников
+    double res = 0;
+    for (int i = 0; i < m; i++)
+    {
+        res += rho(a + (i + 0.5) * h) * pow(a + (i + 0.5) * h, k);
+    }
+    return res * h;
+
+}
+
+void icf(double* nodes, int N, double a, double b, double* formula_coeff, int& error)
+{
+    // проверка, что узлы различны
+    error = 0;
+    std::sort(nodes, nodes + N);
+    std::cout << std::endl;
+    bool has_duplicates = std::adjacent_find(nodes, nodes + N) != nodes + N;
+    if (has_duplicates) {
+        error = 1;
+        return;
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        formula_coeff[i] = 2 * (1 - nodes[i] * nodes[i]) / (N * N * pow(legendre(nodes[i], N - 1), 2));
+    }
+
+
+    std::cout << "Coeffitiens of the quadrature formula:" << std::endl;
+    std::cout << "t_k\t\t\tC_k" << std::endl;
+    double sum = 0;
+    for (int i = 0; i < N; i++)
+    {
+        sum += formula_coeff[i];
+        std::cout << std::setfill(' ') << std::setw(20) << std::left << nodes[i] << "\t" << formula_coeff[i] << std::endl;
+    }
+    std::cout << "sum of C_k = " << sum << std::endl;
+}
+
+int main()
+{
+
+    std::cout << "Task 5.2 Calculation of integrals using Gaussian CF" << std::endl << std::endl;
+    std::cout << "f(x) = sin(x^2)" << std::endl << std::endl;
+
+    std::cout.precision(15);
+
+    // заполнение массива коэффициентов полинома лежандра нулями
+    for (int i = 0; i < 9; i++)
+    {
+        for (int j = 0; j < 9; j++)
+        {
+            polynom_coeff[i][j] = 0;
+        }
+    }
+    // находим коэффициенты многочленов лежандра 1-8 степеней
+    fill_legendre();
+
+    // отделение корней
+    double* points;
+    for (int i = 1; i <= N; i++)
+    {
+        points = separate_solutions(i);
+        for (int j = 0; j < i; j++)
+        {
+            nodes[i - 1][j] = secant(points[j], points[j] + 0.001, i);
+        }
+        delete[] points;
+    }
+
+    // находим коэфициенты кф для N=1,...,8
+    double** formula_coeff = new double* [N];
+    for (int i = 0; i < N; i++)
+    {
+        formula_coeff[i] = new double[N];
+    }
+    int error = 0;
+    for (int i = 1; i <= N; i++)
+    {
+        std::cout << "-----------------------------------------" << std::endl << "N = " << i << std::endl;
+        error = 0; // = 0 если все ок, =1 если есть одинаковые узлы, =2 если не решилась СЛАУ
+        icf(nodes[i - 1], i, a, b, formula_coeff[i - 1], error);
+        if (error == 2)
+        {
+            std::cout << "Something's gone wrong while solving the system of linear equations" << std::endl;
+            return -1;
+        }
+        if (error == 1)
+        {
+            std::cout << "Nodes aren't different" << std::endl;
+            return -1;
+        }
+
+    }
+    std::cout << "-----------------------------------------" << std::endl;
+
+
+    //проверка точности на многочлене для N_1, N_2, N_3, N_4
+    int N_i[4] = { 8, 8, 8, 8 };
+    std::cout << "CF accuracy test" << std::endl << "Enter N_1, N_2, N_3, N_4: " << std::endl;
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << "N_" << i + 1 << " = ";
+        std::cin >> N_i[i];
+        while (N_i[i] > 8)
+        {
+            std::cout << "N_" << i + 1 << " should be <= 8" << std::endl;
+            std::cout << "N_" << i + 1 << " = ";
+            std::cin >> N_i[i];
+        }
+
+    }
+    std::cout << std::endl;
+
+    double exact_test_res;
+    double test_res;
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << "Test of the cf on 17*x^" << 2 * N_i[i] - 1 << "-8" << std::endl;
+        exact_test_res = 17 * calculate_moment(2 * N_i[i] - 1, -1, 1) - 8 * calculate_moment(0, -1, 1);
+        test_res = 0;
+        for (int j = 0; j < N_i[i]; j++)
+        {
+            test_res += formula_coeff[N_i[i] - 1][j] * test_polynom(nodes[N_i[i] - 1][j], 2 * N_i[i] - 1);
+        }
+        std::cout << "integral by cf: " << test_res << std::endl;
+        std::cout << "inegral by moments: " << exact_test_res << std::endl;
+        std::cout << "error: " << fabs(exact_test_res - test_res) << std::endl << std::endl;
+    }
+    std::cout << "-----------------------------------------" << std::endl;
+
+    double A, B;
+    double new_nodes[8][8];
+    double new_formula_coeff[8][8];
+    int process = 1;
+    double res = 0;
+    while (process)
+    {
+        std::cout << "Enter bounaries of the segment: ";
+        std::cin >> A >> B;
+        if (A > B) std::swap(A, B);
+
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j <= i; j++)
+            {
+                new_nodes[i][j] = (B - A) * nodes[i][j] / 2 + (B + A) / 2;
+                new_formula_coeff[i][j] = (B - A) * formula_coeff[i][j] / 2;
+            }
+        }
+
+        double A_k = 0;
+        double exact_res = boost::math::quadrature::gauss<double, 10>::integrate(f, A, B);
+        std::cout << "\"exact\" value of the integral: " << exact_res << std::endl;
+        for (int i = 0; i < N; i++)
+        {
+            std::cout << "-----------------------------------------" << std::endl;
+            std::cout << "N = " << i + 1 << std::endl;
+            std::cout << "x_k\t\t\tA_k" << std::endl;
+            res = 0;
+            A_k = 0;
+
+            for (int j = 0; j <= i; j++)
+            {
+                std::cout << std::setfill(' ') << std::setw(20) << std::left << new_nodes[i][j] << "\t" << new_formula_coeff[i][j] << std::endl;
+                res += new_formula_coeff[i][j] * f(new_nodes[i][j]);
+                A_k += new_formula_coeff[i][j];
+            }
+            std::cout << "|(B - A) - sum A_k| = " << abs(A_k - B + A) << std::endl;
+            std::cout << "int sin(x^2) dx x=" << A << ".." << B << " = " << res << std::endl;
+            std::cout << "error: " << abs(exact_res - res) << std::endl;
+        }
+        std::cout << "-----------------------------------------" << std::endl;
+
+
+        std::cout << "Enter 1 to try new A, B. Enter 0 to exit." << std::endl;
+        std::cin >> process;
+    }
+
+
+    for (int i = 0; i < N; i++) {
+        delete[] formula_coeff[i];
+    }
+    delete[] formula_coeff;
+}
