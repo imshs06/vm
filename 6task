@@ -1,0 +1,233 @@
+#include <iostream>
+#include <iomanip>
+#include <cmath>
+
+//начальные данные
+double x_0 = 0;
+double y_0 = 1;
+
+double f(double x, double y)
+{
+    return -y * (1 + x);
+}
+
+// решение ДУ
+double exact_solution(double x)
+{
+    return exp(-0.5 * x * x - x);
+}
+
+int fact(int N)
+{
+    int res = 1;
+    for (int i = 1; i <= N; i++)
+    {
+        res *= i;
+    }
+    return res;
+}
+
+/*
+* val_taylor - значения решения в точках x_k, k=-2...N (N+3 значений)
+* nodes - узлы x_k, k=-2...N (N+3 значений)
+*/
+void taylor(double* val_taylor, double* nodes, int N)
+{
+    double coeffs[7] = { y_0, -1, 0, 2, -2, -6, 16 };
+    for (int i = 0; i < N + 3; i++)
+    {
+        val_taylor[i] = 0;
+        for (int j = 0; j < 7; j++)
+        {
+            val_taylor[i] += coeffs[j] * pow(nodes[i], j) / fact(j);
+        }
+    }
+}
+
+void adams(double* adams_values, double* values, double* nodes, int N, double h)
+{
+    double** matrix = new double* [200];
+    for (int i = 0; i < 200; i++)
+    {
+        matrix[i] = new double[200];
+    }
+
+    std::copy(values, values + 5, matrix[0]);
+    for (int i = 0; i < 5; i++)
+    {
+        matrix[1][i] = h * f(nodes[i], matrix[0][i]);
+    }
+
+    for (int i = 2; i < 6; i++)
+    {
+        for (int j = 0; j < 6 - i; j++)
+        {
+            matrix[i][j] = matrix[i - 1][j + 1] - matrix[i - 1][j];
+        }
+    }
+
+    for (int i = 1; i < N - 1; i++)
+    {
+        matrix[0][4 + i] = matrix[0][4 + i - 1] + matrix[1][4 + i - 1] + matrix[2][4 + i - 2] / 2 + 5 * matrix[3][4 + i - 3] / 12 + 3 * matrix[4][4 + i - 4] / 8 + 251 * matrix[5][4 + i - 5] / 720;
+        matrix[1][4 + i] = h * f(nodes[4 + i], matrix[0][4 + i]);
+        matrix[2][4 + i - 1] = matrix[1][4 + i] - matrix[1][4 + i - 1];
+        matrix[3][4 + i - 2] = matrix[2][4 + i - 1] - matrix[2][4 + i - 2];
+        matrix[4][4 + i - 3] = matrix[3][4 + i - 2] - matrix[3][4 + i - 3];
+        matrix[5][4 + i - 4] = matrix[4][4 + i - 3] - matrix[4][4 + i - 4];
+    }
+
+    if (N - 2 >= 0) std::copy(matrix[0] + 5, matrix[0] + N + 3, adams_values);
+
+    for (int i = 0; i < 200; i++)
+    {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
+
+/*
+* values - значения решения в точках x_k, k=0...N (N+1 значений)
+* nodes - узлы x_k, k=-2...N (N+3 значений)
+*/
+void runge_kutta(double* values, double* nodes, int N, double h)
+{
+    double k_1, k_2, k_3, k_4;
+    values[0] = y_0;
+    for (int i = 1; i <= N; i++)
+    {
+        k_1 = h * f(nodes[i + 1], values[i - 1]);
+        k_2 = h * f(nodes[i + 1] + 0.5 * h, values[i - 1] + 0.5 * k_1);
+        k_3 = h * f(nodes[i + 1] + 0.5 * h, values[i - 1] + 0.5 * k_2);
+        k_4 = h * f(nodes[i + 1] + h, values[i - 1] + k_3);
+        values[i] = values[i - 1] + (k_1 + 2 * k_2 + 2 * k_3 + k_4) / 6;
+    }
+}
+
+/*
+* values - значения решения в точках x_k, k=0...N (N+1 значений)
+* nodes - узлы x_k, k=-2...N (N+3 значений)
+*/
+void euler_I(double* values, double* nodes, int N, double h)
+{
+    values[0] = y_0;
+    for (int i = 1; i <= N; i++)
+    {
+        values[i] = values[i - 1] + h * f(nodes[i + 1] + 0.5 * h, values[i - 1] + 0.5 * h * f(nodes[i + 1], values[i - 1]));
+    }
+}
+
+/*
+* values - значения решения в точках x_k, k=0...N (N+1 значений)
+* nodes - узлы x_k, k=-2...N (N+3 значений)
+*/
+void euler_II(double* values, double* nodes, int N, double h)
+{
+    values[0] = y_0;
+    for (int i = 1; i <= N; i++)
+    {
+        values[i] = values[i - 1] + 0.5 * h * (f(nodes[i + 1], values[i - 1]) + f(nodes[i + 2], values[i - 1] + h * f(nodes[i + 1], values[i - 1])));
+    }
+}
+
+
+int main()
+{
+    std::cout.precision(15);
+    std::cout << "Task #6. Numerical solution of the Cauchy problem for an ordinary first order differential equation" << std::endl << std::endl;
+    std::cout << "y'(x) = -y(x)*(1+ x), y(0) = 1" << std::endl;
+    std::cout << "exact solution: exp(-0.5x^2 - x)" << std::endl << std::endl;
+
+
+    int N; // кол-во точек - 3
+    double h; // шаг
+    std::cout << "Enter h: ";
+    std::cin >> h;
+    std::cout << "Enter N: ";
+    std::cin >> N;
+    std::cout << std::endl;
+
+    double* nodes = new double[N + 3]; // точки x_k, k=-2..N
+    double* values = new double[N + 3]; // точные значения в точках x_k, k=-2..N
+    std::cout << "Table of exact solution values:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "x_k \t y(x_k)" << std::endl;
+    for (int k = -2; k <= N; k++)
+    {
+        nodes[k + 2] = x_0 + k * h;
+        values[k + 2] = exact_solution(nodes[k + 2]);
+        std::cout << nodes[k + 2] << "\t" << values[k + 2] << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl << std::endl;
+
+    // решение методом разложения в ряд Тейлора
+    double* val_taylor = new double[N + 3]; // приближенные значения в точках x_k, k=-2..N, полученные методом разложения в ряд Тейлора
+    taylor(val_taylor, nodes, N);
+    /*std::cout << "Table of Taylor solution values:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "x_k \t\ty(x_k)\t\terror" << std::endl;
+    for (int k = -2; k <= N; k++)
+    {
+        std::cout << nodes[k + 2] << "\t" << std::setfill(' ') << std::setw(20) << val_taylor[k + 2] << "\t" << abs(values[k + 2] - val_taylor[k + 2]) << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl << std::endl;*/
+
+    double* val_adams = new double[N - 2];
+    adams(val_adams, val_taylor, nodes, N, h);
+    /*std::cout << "Table of Adams solution values:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "x_k \t\ty(x_k)" << std::endl;
+    for (int k = 0; k < N-2; k++)
+    {
+        std::cout << nodes[k+5] << "\t" << std::setfill(' ') << std::setw(20) << val_adams[k] << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl << std::endl;*/
+
+
+    double* val_runge_kutta = new double[N + 1]; // приближенные значения в точках x_k, k=0..N, полученные методом Рунге-Кутта
+    runge_kutta(val_runge_kutta, nodes, N, h);
+    /*std::cout << "Table of Runge-Kutta solution values:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "x_k \t\ty(x_k)" << std::endl;
+    for (int k = 1; k <= N; k++)
+    {
+        std::cout << nodes[k + 2] << "\t" << std::setfill(' ') << std::setw(20) << val_runge_kutta[k] << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl << std::endl;*/
+
+    double* val_euler_I = new double[N + 1]; // приближенные значения в точках x_k, k=0..N, полученные методом Эйлера I
+    euler_I(val_euler_I, nodes, N, h);
+    /*std::cout << "Table of Euler I solution values:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "x_k \t\ty(x_k)" << std::endl;
+    for (int k = 1; k <= N; k++)
+    {
+        std::cout << nodes[k + 2] << "\t" << std::setfill(' ') << std::setw(20) << val_euler_I[k] << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl << std::endl;*/
+
+    double* val_euler_II = new double[N + 1]; // приближенные значения в точках x_k, k=0..N, полученные методом Эйлера II
+    euler_II(val_euler_II, nodes, N, h);
+    /*std::cout << "Table of Euler II solution values:" << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "x_k \t\ty(x_k)" << std::endl;
+    for (int k = 1; k <= N; k++)
+    {
+        std::cout << nodes[k + 2] << "\t" << std::setfill(' ') << std::setw(20) << val_euler_II[k] << std::endl;
+    }
+    std::cout << "--------------------------------" << std::endl << std::endl;*/
+
+    std::cout << "Errors for y_N:" << std::endl;
+    std::cout << "Taylor: " << abs(values[N + 2] - val_taylor[N + 2]) << std::endl;
+    std::cout << "Adams: " << abs(values[N + 2] - val_adams[N - 3]) << std::endl;
+    std::cout << "Runge-Kutta: " << abs(values[N + 2] - val_runge_kutta[N]) << std::endl;
+    std::cout << "Euler I: " << abs(values[N + 2] - val_euler_I[N]) << std::endl;
+    std::cout << "Euler II: " << abs(values[N + 2] - val_euler_II[N]) << std::endl;
+
+    delete[] nodes;
+    delete[] values;
+    delete[] val_taylor;
+    delete[] val_adams;
+    delete[] val_runge_kutta;
+    delete[] val_euler_I;
+    delete[] val_euler_II;
+}
