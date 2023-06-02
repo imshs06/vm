@@ -1,0 +1,71 @@
+// 5.2 Meler.cpp: определяет точку входа для приложения.
+//
+
+#include <boost/math/quadrature/gauss.hpp>
+
+#include "5.2 Meler.h"
+
+#include <iostream>
+#include <cmath>
+#include <iomanip>
+
+const double PI = acos(-1.0);
+
+double f(double x)
+{
+    return cos(x) * exp(x * x);
+}
+double f_1(double x)
+{
+    return cos(x) * exp(x * x) / pow(1 - x * x, 0.5);
+}
+
+int main()
+{
+    std::cout << "Task #5.2 Calculation of integrals using KF Mehler" << std::endl << std::endl;
+    std::cout.precision(15);
+    int N[3];
+    for (int i = 0; i < 3; i++)
+    {
+        std::cout << "Enter N_" << i + 1 << ": ";
+        std::cin >> N[i];
+        while (N[i] <= 0)
+        {
+            std::cout << "N_" << i + 1 << " should be > 0" << std::endl;
+            std::cout << "Enter N_" << i + 1 << ": ";
+            std::cin >> N[i];
+        }
+    }
+
+
+    double* nodes;
+    double* cf_coeff;
+    double res = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        std::cout << "-------------------------------------" << std::endl;
+        std::cout << "N = " << N[i] << std::endl;
+        nodes = new double[N[i]];
+        cf_coeff = new double[N[i]];
+        for (int j = 1; j <= N[i]; j++)
+        {
+            nodes[j - 1] = cos((2 * j - 1) * PI / (2 * N[i]));
+            cf_coeff[j - 1] = PI / N[i];
+        }
+        std::cout << "Coeffitiens of the quadrature formula:" << std::endl;
+        std::cout << std::setfill(' ') << std::setw(20) << "x_k\t\t\tA_k" << std::endl;
+
+        res = 0;
+        for (int j = 0; j < N[i]; j++)
+        {
+            std::cout << nodes[j] << "\t" << cf_coeff[j] << std::endl;
+            res += cf_coeff[j] * f(nodes[j]);
+        }
+
+        std::cout << "int cos(x)*e^(x^2)/sqrt(1-x^2)dx x=-1..1 " << res << std::endl;
+        delete[] nodes;
+        delete[] cf_coeff;
+    }
+
+}
+
