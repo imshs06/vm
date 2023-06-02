@@ -1,0 +1,480 @@
+#include <iostream>
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
+#include <algorithm>
+
+double* moments;
+
+// весовая функция
+double rho(double x)
+{
+    return exp(x);
+}
+
+double f(double x)
+{
+    return sin(x);
+}
+
+double F(double x)
+{
+    return 0.5 * exp(x) * (sin(x) - cos(x));
+}
+
+// многочлен для проверки ИКФ
+double test_polynom(double x, int degree)
+{
+    return 17 * pow(x, degree) - 8;
+}
+
+/*
+* Вычисляет int rho(x)x^k dx x=a..b (k-ый момент весовой функции для (a,b))
+*/
+double calculate_moment(int k, double a, double b)
+{
+    int m = 10; // кол-во промежутков разбиения (a,b)
+    double h = (b - a) / 10; //длина промежутков разбиения
+    // добиваемся того, чтобы длина промежутков была не больше 0.001
+    while (h > 1e-3)
+    {
+        m *= 10;
+        h = (b - a) / m;
+    }
+    // считаем интеграл по СКФ средних прямоугольников
+    double res = 0;
+    for (int i = 0; i < m; i++)
+    {
+        res += rho(a + (i + 0.5) * h) * pow(a + (i + 0.5) * h, k);
+    }
+    return res * h;
+}
+
+/*
+* Решает СЛАУ Ax=y методом Гаусса
+* Возвращает -1, если прозошла ошибка при вычислениях
+*/
+int gauss(double** A, double* x, double* y, int n)
+{
+    double max;
+    int k, index;
+    const double eps = 0.00001;
+    k = 0;
+    while (k < n)
+    {
+        max = abs(A[k][k]);
+        index = k;
+        for (int i = k + 1; i < n; i++)
+        {
+            if (abs(A[i][k]) > max)
+            {
+                max = abs(A[i][k]);
+                index = i;
+            }
+        }
+        if (max < eps)
+        {
+            return -1;
+        }
+        for (int j = 0; j < n; j++)
+        {
+            double temp = A[k][j];
+            A[k][j] = A[index][j];
+            A[index][j] = temp;
+        }
+        double temp = y[k];
+        y[k] = y[index];
+        y[index] = temp;
+        for (int i = k; i < n; i++)
+        {
+            double temp = A[i][k];
+            if (abs(temp) < eps) continue;
+            for (int j = 0; j < n; j++)
+                A[i][j] = A[i][j] / temp;
+            y[i] = y[i] / temp;
+            if (i == k)  continue;
+            for (int j = 0; j < n; j++)
+                A[i][j] = A[i][j] - A[k][j];
+            y[i] = y[i] - y[k];
+        }
+        k++;
+    }
+    for (k = n - 1; k >= 0; k--)
+    {
+        x[k] = y[k];
+        for (int i = 0; i < k; i++)
+            y[i] = y[i] - A[i][k] * x[k];
+    }
+    return 0;
+}
+
+double poly(double x, double* coeffs, int degree)
+{
+    double res = 0;
+    for (int i = 0; i < degree; i++)
+    {
+        res += coeffs[i] * pow(x, i);
+    }
+    res += pow(x, degree);
+    return res;
+}
+
+void separate_solutions(double a, double b, double* segments, double* coeffs, int degree)
+{
+    double h = 0.001; // длина отрезков
+    int counter = 0; // кол-во отрезков
+    double x1 = a;
+    double x2 = x1 + h;
+    double y1 = poly(x1, coeffs, degree);
+    double y2;
+    while (x2 <= b)
+    {
+        y2 = poly(x2, coeffs, degree);
+        if (y1 * y2 <= 0)
+        {
+            segments[counter] = x1;
+            counter += 1;
+        }
+
+        x1 = x2;
+        x2 = x1 + h;
+        y1 = y2;
+    }
+}
+
+double random(double min, double max, int precision)
+{
+
+    double value;
+
+    value = rand() % (int)pow(10, precision);
+
+    value = min + (value / pow(10, precision)) * (max - min);
+
+    return value;
+}
+
+double bisection(double A, double B, double* coeffs, int degree, double e)
+{
+    double C;
+    int counter = 0;
+    while ((B - A) > 2 * e)
+    {
+        counter++;
+        C = (A + B) / 2;
+        if ((poly(A, coeffs, degree) * poly(C, coeffs, degree)) <= 0)
+        {
+            B = C;
+        }
+        else
+        {
+            A = C;
+        }
+
+    }
+    return  (A + B) / 2;
+}
+
+double secant(double A, double B, double* coeffs, int degree, double e)
+{
+    int stime;
+    long ltime;
+
+    ltime = time(NULL);
+    stime = (unsigned int)ltime / 2;
+    srand(stime);
+
+    double prev_sol = random(A, B, 6);
+    double curr_sol = random(A, B, 6);
+    double next_sol = curr_sol - poly(curr_sol, coeffs, degree) * (curr_sol - prev_sol) / (poly(curr_sol, coeffs, degree) - poly(prev_sol, coeffs, degree));
+
+    while (fabs(curr_sol - prev_sol) >= e)
+    {
+        prev_sol = curr_sol;
+        curr_sol = next_sol;
+        next_sol = curr_sol - poly(curr_sol, coeffs, degree) * (curr_sol - prev_sol) / (poly(curr_sol, coeffs, degree) - poly(prev_sol, coeffs, degree));
+    }
+
+    return curr_sol;
+}
+
+void search_nodes(double a, double b, int N, double e, double* nodes, int& error)
+{
+    // находим коэффициенты ортогонального мн-на, решая СЛАУ: Ax=y, где x - столбец неизвестных коэффициентов
+    // заполняем A - матрицу системы
+    double** A = new double* [N];
+    for (int i = 0; i < N; i++)
+    {
+        A[i] = new double[N];
+    }
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            A[i][j] = moments[i + j];
+        }
+    }
+    // заполняем столбец свободных членов СЛАУ
+    double* free_members = new double[N];
+    for (int i = 0; i < N; i++)
+    {
+        free_members[i] = (-1) * moments[N + i];
+    }
+
+    double* poly_coeff = new double[N];
+
+    if (gauss(A, poly_coeff, free_members, N) == -1)
+    {
+        error = 2;
+        return;
+    }
+
+    std::cout << std::endl << "polynom:" << std::endl;
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << poly_coeff[i] << "x^" << i << "+";
+    }
+    std::cout << "x^" << N << std::endl << std::endl;
+
+    // отделяем корни многочлена
+    double* points = new double[N]; // начала отрезков, на которых находятся корни
+    separate_solutions(a, b, points, poly_coeff, N);
+
+    // находим корни многочлена
+    for (int i = 0; i < N; i++)
+    {
+        nodes[i] = bisection(points[i], points[i] + 0.001, poly_coeff, N, e);
+    }
+
+
+    for (int i = 0; i < N; i++) {
+        delete[] A[i];
+    }
+    delete[] A;
+    delete[] free_members;
+    delete[] poly_coeff;
+    delete[] points;
+}
+
+/*
+* Функция вычисления ИКФ
+* nodes - массив узлов
+* N - кол-во узлов
+* (a, b) - промежуток интегрирования
+* error - переменная, отвечающая за корректность вводимых данных. =0 если все ок. =1 если узлы неразличные, =2 если не решилась СЛАУ
+*/
+void icf(double* nodes, int N, double a, double b, double* formula_coeff, int& error)
+{
+    // проверка, что узлы различны
+    error = 0;
+    std::sort(nodes, nodes + N);
+    bool has_duplicates = std::adjacent_find(nodes, nodes + N) != nodes + N;
+    if (has_duplicates) {
+        error = 1;
+        return;
+    }
+
+    // находим коэфф+ициенты квадратурной формулы, решая СЛАУ: Ax=moments, где x - столбец неизвестных коэффициентов
+    // заполняем A - матрицу системы
+    double** A = new double* [N];
+    for (int i = 0; i < N; i++)
+    {
+        A[i] = new double[N];
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            A[i][j] = pow(nodes[j], i);
+        }
+    }
+
+    // копируем массив моментов, чтобы в исходном массиве порядок моментов после гаусса не изменился
+    double* free_members = new double[N];
+    for (int i = 0; i < N; i++)
+    {
+        free_members[i] = moments[i];
+    }
+    if (gauss(A, formula_coeff, free_members, N) == -1)
+    {
+        error = 2;
+        return;
+    }
+
+
+    for (int i = 0; i < N; i++) {
+        delete[] A[i];
+    }
+    delete[] A;
+    delete[] free_members;
+}
+
+int main()
+{
+    std::cout << "Task #5.1 Approximate calculation of integrals using quadrature formulas Highest Algebraic Degree of Accuracy" << std::endl;
+    std::cout << "f(x) = sin(x)" << std::endl;
+    std::cout << "rho(x) = e^x" << std::endl << std::endl;
+    std::cout.precision(15);
+    // ввод границ промежутка интегрирования
+    double a, b; // границы промежутка интегрирования
+    std::cout << "Enter the boundaries of the segment: ";
+    std::cin >> a >> b;
+    if (a > b) std::swap(a, b);
+
+    // ввод кол-ва узлов
+    int N;
+    std::cout << "Enter the number of nodes: ";
+    std::cin >> N;
+
+    // ввод узлов
+    double* nodes_1 = new double[N];
+    std::cout << "Enter different nodes:" << std::endl;
+    double x;
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << "x_" << i + 1 << " = ";
+        std::cin >> x;
+        while (std::find(nodes_1, nodes_1 + i, x) != nodes_1 + i)
+        {
+            std::cout << "Nodes must be different." << std::endl;
+            std::cout << "x_" << i + 1 << ": ";
+            std::cin >> x;
+        }
+        nodes_1[i] = x;
+    }
+    double exact_res = F(b) - F(a);
+    std::cout << std::endl << "------------------------" << std::endl;
+    std::cout << "f(x) = sin(x)" << std::endl;
+    std::cout << "rho(x) = e^x" << std::endl;
+    std::cout << "(a, b) = (" << a << ", " << b << ")" << std::endl;
+    std::cout << "exact value of the integral: " << exact_res << std::endl;
+    std::cout << "------------------------" << std::endl;
+
+    moments = new double[2 * N];
+    // считаем моменты 0...2N-1 весовой функции
+    std::cout << "Moments of the weight function" << std::endl;
+    for (int i = 0; i < 2 * N; i++)
+    {
+        moments[i] = calculate_moment(i, a, b);
+        std::cout << "moment " << i << ": " << moments[i] << std::endl;
+    }
+    std::cout << "------------------------" << std::endl << std::endl;
+
+    std::cout << "------------------------" << std::endl << "icf" << std::endl << "------------------------" << std::endl;
+    double* formula_coeff_1 = new double[N];// коэффициенты квадратурной формулы
+    int error_1 = 0; // = 0 если все ок, =1 если есть одинаковые узлы, =2 если не решилась СЛАУ
+    icf(nodes_1, N, a, b, formula_coeff_1, error_1);
+    if (error_1 == 2)
+    {
+        std::cout << "Something's gone wrong while solving the system of linear equations" << std::endl;
+        return -1;
+    }
+
+    std::cout << "Nodes:" << std::endl;
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << "x_" << i + 1 << " = " << nodes_1[i] << std::endl;
+    }
+
+    std::cout << std::endl << "Coeffitiens of the quadrature formula:" << std::endl;
+    std::cout << "x_k \t A_k" << std::endl;
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << nodes_1[i] << "\t" << formula_coeff_1[i] << std::endl;
+    }
+
+    // проверка полученных коэффициентов на многочлене степени N-1
+    std::cout << std::endl << "Test of the icf on 17*x^" << N - 1 << "-8" << std::endl;
+    double exact_test_res_1 = 17 * moments[N - 1] - 8 * moments[0]; // нужно будет для проверки икф на многочлене
+    double test_res_1 = 0;
+
+    for (int i = 0; i < N; i++)
+    {
+        test_res_1 += formula_coeff_1[i] * test_polynom(nodes_1[i], N - 1);
+    }
+    std::cout << "error: " << abs(exact_test_res_1 - test_res_1) << std::endl << std::endl;
+
+    double res_1 = 0; // значение интеграла
+    // вычисляем интеграл по полученной квадратурной формуле
+    for (int i = 0; i < N; i++)
+    {
+        res_1 += formula_coeff_1[i] * f(nodes_1[i]);
+    }
+    std::cout << "int sin(x)*e^x dx x=" << a << ".." << b << " = " << res_1 << std::endl;
+    std::cout << "error: " << abs(res_1 - exact_res) << std::endl;
+
+    std::cout << "------------------------" << std::endl;
+    std::cout << std::endl;
+
+
+    // ввод точности
+    double e;
+    std::cout << "Enter precision: ";
+    std::cin >> e;
+    std::cout << std::endl << "------------------------" << std::endl << "cfnast" << std::endl << "------------------------" << std::endl;
+
+    double* nodes_2 = new double[N]; // узлы - корни ортогонального многочлена
+    int error_2 = 0;
+
+    search_nodes(a, b, N, e, nodes_2, error_2); // находим узлы
+
+    if (error_2 == 2)
+    {
+        std::cout << "Something's gone wrong while solving the system of linear equations" << std::endl;
+        return -1;
+    }
+
+
+    std::cout << "Nodes:" << std::endl;
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << "x_" << i + 1 << " = " << nodes_2[i] << std::endl;
+    }
+    std::cout << std::endl;
+
+    double* formula_coeff_2 = new double[N];// коэффициенты квадратурной формулы
+    error_2 = 0; // = 0 если все ок, =1 если есть одинаковые узлы, =2 если не решилась СЛАУ
+    icf(nodes_2, N, a, b, formula_coeff_2, error_2);
+    if (error_2 == 2)
+    {
+        std::cout << "Something's gone wrong while solving the system of linear equations" << std::endl;
+        return -1;
+    }
+
+    std::cout << "Coeffitiens of the quadrature formula:" << std::endl;
+    std::cout << "x_k \t A_k" << std::endl;
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << nodes_2[i] << "\t" << formula_coeff_2[i] << std::endl;
+    }
+    std::cout << std::endl;
+
+    // проверка полученных коэффициентов на многочлене степени 2N-1
+    std::cout << "Test of the icf on 17*x^" << 2 * N - 1 << "-8" << std::endl;
+    double exact_test_res_2 = 17 * moments[2 * N - 1] - 8 * moments[0]; // нужно будет для проверки икф на многочлене
+    double test_res_2 = 0;
+    for (int i = 0; i < N; i++)
+    {
+        test_res_2 += formula_coeff_2[i] * test_polynom(nodes_2[i], 2 * N - 1);
+    }
+    std::cout << "error: " << abs(exact_test_res_2 - test_res_2) << std::endl << std::endl;
+
+    double res_2 = 0; // значение интеграла
+    // вычисляем интеграл по полученной квадратурной формуле
+    for (int i = 0; i < N; i++)
+    {
+        res_2 += formula_coeff_2[i] * f(nodes_2[i]);
+    }
+
+
+    std::cout << "int sin(x)*e^x dx x=" << a << ".." << b << " = " << res_2 << std::endl;
+    std::cout << "error: " << abs(res_2 - exact_res) << std::endl;
+
+
+    delete[] nodes_1;
+    delete[] moments;
+    delete[] formula_coeff_1;
+    delete[] nodes_2;
+    delete[] formula_coeff_2;
+}
